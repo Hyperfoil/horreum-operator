@@ -1,6 +1,6 @@
 # Horreum Operator
 
-This operator installs [Horreum](https://github.com/Hyperfoil/Horreum) and services it depends on (Grafana, PostgreSQL database and Keycloak SSO)
+This operator installs [Horreum](https://github.com/Hyperfoil/Horreum) and services it depends on (PostgreSQL database and Keycloak SSO)
    
 ## Deploy the operator in minikube
 

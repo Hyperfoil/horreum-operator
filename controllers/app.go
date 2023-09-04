@@ -7,7 +7,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func appPod(cr *hyperfoilv1alpha1.Horreum, keycloakPublicUrl, grafanaPublicUrl, appPublicUrl string) *corev1.Pod {
+func appPod(cr *hyperfoilv1alpha1.Horreum, keycloakPublicUrl, appPublicUrl string) *corev1.Pod {
 	keycloakInternalURL := keycloakInternalURL(cr)
 
 	horreumEnv := []corev1.EnvVar{
@@ -50,25 +50,6 @@ func appPod(cr *hyperfoilv1alpha1.Horreum, keycloakPublicUrl, grafanaPublicUrl, 
 			Name:  "HORREUM_KEYCLOAK_URL",
 			Value: keycloakPublicUrl + "/",
 		},
-		{
-			Name:  "HORREUM_GRAFANA_URL",
-			Value: grafanaPublicUrl,
-		},
-		{
-			Name:  "HORREUM_GRAFANA_MP_REST_URL",
-			Value: grafanaInternalURL(cr),
-		},
-		{
-			Name:  "HORREUM_GRAFANA_MP_REST_TRUSTSTORE",
-			Value: "/etc/horreum/imports/service-ca.keystore",
-		},
-		{
-			Name:  "HORREUM_GRAFANA_MP_REST_TRUSTSTOREPASSWORD",
-			Value: "password",
-		},
-		// This is needed because Grafana doesn't support API keys for user management
-		secretEnv("HORREUM_GRAFANA_ADMIN_USER", grafanaAdminSecret(cr), corev1.BasicAuthUsernameKey),
-		secretEnv("HORREUM_GRAFANA_ADMIN_PASSWORD", grafanaAdminSecret(cr), corev1.BasicAuthPasswordKey),
 	}
 	if javaOptions, ok := cr.ObjectMeta.Annotations["java-options"]; ok {
 		horreumEnv = append(horreumEnv, corev1.EnvVar{
@@ -169,10 +150,6 @@ func appPod(cr *hyperfoilv1alpha1.Horreum, keycloakPublicUrl, grafanaPublicUrl, 
 						{
 							Name:  "APP_URL",
 							Value: appPublicUrl,
-						},
-						{
-							Name:  "GRAFANA_URL",
-							Value: grafanaPublicUrl,
 						},
 					},
 					VolumeMounts: []corev1.VolumeMount{

@@ -93,7 +93,7 @@ func (r *HorreumReconciler) Reconcile(ctx context.Context, request ctrl.Request)
 	}
 
 	if cr.Spec.NodeHost == "" &&
-		(isNodePort(r, cr.Spec.ServiceType) || isNodePort(r, cr.Spec.Keycloak.ServiceType) || isNodePort(r, cr.Spec.Grafana.ServiceType)) {
+		(isNodePort(r, cr.Spec.ServiceType) || isNodePort(r, cr.Spec.Keycloak.ServiceType)) {
 		msg := "service of type NodePort is used but spec.nodeHost is not defined"
 		updateStatus(r, cr, "Error", msg)
 		return reconcile.Result{}, stdErrors.New(msg)
@@ -116,10 +116,6 @@ func (r *HorreumReconciler) Reconcile(ctx context.Context, request ctrl.Request)
 			return reconcile.Result{}, err
 		}
 		err = createServiceCert(cr, r, logger, ca, caPrivateKey, cr.GetName()+"-keycloak-certs", cr.GetName()+"-keycloak", 2000)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-		err = createServiceCert(cr, r, logger, ca, caPrivateKey, cr.GetName()+"-grafana-certs", cr.GetName()+"-grafana", 3000)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -156,11 +152,6 @@ func (r *HorreumReconciler) Reconcile(ctx context.Context, request ctrl.Request)
 	}
 	keycloakDbSecret := newSecret(cr, keycloakDbSecret(cr))
 	if err := ensureSame(r, cr, logger, keycloakDbSecret, &corev1.Secret{}, nocompare,
-		checkSecret(corev1.BasicAuthUsernameKey, corev1.BasicAuthPasswordKey)); err != nil {
-		return reconcile.Result{}, err
-	}
-	grafanaAdminSecret := newSecret(cr, grafanaAdminSecret(cr))
-	if err := ensureSame(r, cr, logger, grafanaAdminSecret, &corev1.Secret{}, nocompare,
 		checkSecret(corev1.BasicAuthUsernameKey, corev1.BasicAuthPasswordKey)); err != nil {
 		return reconcile.Result{}, err
 	}
@@ -251,65 +242,6 @@ func (r *HorreumReconciler) Reconcile(ctx context.Context, request ctrl.Request)
 		return reconcile.Result{}, err
 	}
 
-	grafanaService := grafanaService(cr, r)
-	grafanaRoute, err := grafanaRoute(cr, r)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-	grafanaPublicUrl := cr.Spec.Grafana.External.PublicUri
-	if grafanaPublicUrl == "" {
-		if err := ensureSame(r, cr, logger, grafanaService, &corev1.Service{}, compareService, nocheck); err != nil {
-			return reconcile.Result{}, err
-		}
-		if isNodePort(r, cr.Spec.Grafana.ServiceType) {
-			nodePort, err := getNodePort(r, grafanaService, logger)
-			if err != nil {
-				return reconcile.Result{}, err
-			} else if nodePort == 0 {
-				logger.Info("Waiting for Grafana service node port to be assigned")
-				updateStatus(r, cr, "Pending", "Waiting for Grafana service node port")
-				return reconcile.Result{Requeue: true}, nil
-			}
-			grafanaPublicUrl = fmt.Sprintf("https://%s:%d", cr.Spec.NodeHost, nodePort)
-		} else {
-			if cr.Spec.Grafana.ServiceType == corev1.ServiceTypeLoadBalancer {
-				grafanaPublicUrl, err = getLoadBalancer(r, grafanaService, logger)
-				if err != nil {
-					return reconcile.Result{}, err
-				}
-			} else if r.RoutesAvailable {
-				foundRoute := &routev1.Route{}
-				if err := ensureSame(r, cr, logger, grafanaRoute, foundRoute, compareRoute, checkRoute); err != nil {
-					return reconcile.Result{}, err
-				}
-				grafanaPublicUrl = getRouteUrl(foundRoute)
-			}
-			if grafanaPublicUrl == "" {
-				updateStatus(r, cr, "Pending", "Waiting for Grafana service URL")
-				logger.Info("Waiting for Grafana service URL to be assigned")
-				return reconcile.Result{Requeue: true}, nil
-			}
-		}
-	}
-	cr.Status.GrafanaUrl = grafanaPublicUrl
-
-	grafanaPod := grafanaPod(cr, r, keycloakPublicUrl, grafanaPublicUrl)
-	if cr.Spec.Grafana.External.PublicUri != "" {
-		if err := ensureDeleted(r, cr, grafanaPod, &corev1.Pod{}); err != nil {
-			return reconcile.Result{}, err
-		}
-		if err := ensureDeleted(r, cr, grafanaService, &corev1.Service{}); err != nil {
-			return reconcile.Result{}, err
-		}
-		if r.RoutesAvailable {
-			if err := ensureDeleted(r, cr, grafanaRoute, &routev1.Route{}); err != nil {
-				return reconcile.Result{}, err
-			}
-		}
-	} else if err := ensureSame(r, cr, logger, grafanaPod, &corev1.Pod{}, comparePods, checkPod); err != nil {
-		return reconcile.Result{}, err
-	}
-
 	appService := appService(cr, r)
 	appRoute, err := appRoute(cr, r)
 	if err != nil {
@@ -350,7 +282,7 @@ func (r *HorreumReconciler) Reconcile(ctx context.Context, request ctrl.Request)
 	}
 	cr.Status.PublicUrl = appPublicUrl
 
-	appPod := appPod(cr, keycloakPublicUrl, grafanaPublicUrl, appPublicUrl)
+	appPod := appPod(cr, keycloakPublicUrl, appPublicUrl)
 	if err := ensureSame(r, cr, logger, appPod, &corev1.Pod{}, comparePods, checkPod); err != nil {
 		return reconcile.Result{}, err
 	}

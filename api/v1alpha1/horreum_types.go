@@ -83,23 +83,6 @@ type PostgresSpec struct {
 	User *int64 `json:"user,omitempty"`
 }
 
-// GrafanaSpec defines Grafana setup
-type GrafanaSpec struct {
-	// When this is set Grafana instance will not be deployed and Horreum will use this external instance.
-	External ExternalSpec `json:"external,omitempty"`
-	// Secret used for admin access to Grafana. Created if it does not exist.
-	// Must contain keys `username` and `password`.
-	AdminSecret string `json:"adminSecret,omitempty"`
-	// Custom Grafana image. Defaults to registry.redhat.io/openshift4/ose-grafana:latest
-	Image string `json:"image,omitempty"`
-	// Default theme that should be used - one of `dark` or `light`. Defaults to `light`.
-	Theme string `json:"theme,omitempty"`
-	// Route for external access.
-	Route RouteSpec `json:"route,omitempty"`
-	// Alternative service type when routes are not available (e.g. on vanilla K8s)
-	ServiceType corev1.ServiceType `json:"serviceType,omitempty"`
-}
-
 // HorreumSpec defines the desired state of Horreum
 type HorreumSpec struct {
 	// Name of secret resource with data `username` and `password`. This will be the first user
@@ -119,8 +102,6 @@ type HorreumSpec struct {
 	Keycloak KeycloakSpec `json:"keycloak,omitempty"`
 	// PostgreSQL specification
 	Postgres PostgresSpec `json:"postgres,omitempty"`
-	// Grafana specification
-	Grafana GrafanaSpec `json:"grafana,omitempty"`
 	// Host used for NodePort services
 	NodeHost string `json:"nodeHost,omitempty"`
 }
@@ -137,8 +118,6 @@ type HorreumStatus struct {
 	PublicUrl string `json:"publicUrl,omitempty"`
 	// Public URL of Keycloak
 	KeycloakUrl string `json:"keycloakUrl,omitempty"`
-	// Public URL of Grafana
-	GrafanaUrl string `json:"grafanaUrl,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -152,7 +131,6 @@ type HorreumStatus struct {
 // +kubebuilder:printcolumn:name="Reason",type="string",JSONPath=".status.reason",description="Reason for status"
 // +kubebuilder:printcolumn:name="URL",type="string",JSONPath=".status.publicUrl",description="Horreum URL"
 // +kubebuilder:printcolumn:name="Keycloak URL",type="string",JSONPath=".status.keycloakUrl",description="Keycloak URL"
-// +kubebuilder:printcolumn:name="Grafana URL",type="string",JSONPath=".status.grafanaUrl",description="Grafana URL"
 type Horreum struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

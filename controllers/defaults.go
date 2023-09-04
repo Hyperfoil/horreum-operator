@@ -29,10 +29,6 @@ func keycloakAdminSecret(cr *hyperfoilv1alpha1.Horreum) string {
 	return withDefault(cr.Spec.Keycloak.AdminSecret, cr.Name+"-keycloak-admin")
 }
 
-func grafanaAdminSecret(cr *hyperfoilv1alpha1.Horreum) string {
-	return withDefault(cr.Spec.Grafana.AdminSecret, cr.Name+"-grafana-admin")
-}
-
 func horreumAdminSecret(cr *hyperfoilv1alpha1.Horreum) string {
 	return withDefault(cr.Spec.AdminSecret, cr.Name+"-admin")
 }
@@ -54,14 +50,4 @@ func keycloakInternalURL(cr *hyperfoilv1alpha1.Horreum) string {
 		return cr.Spec.Keycloak.External.PublicUri
 	}
 	return "https://" + cr.Name + "-keycloak." + cr.Namespace + ".svc"
-}
-
-func grafanaInternalURL(cr *hyperfoilv1alpha1.Horreum) string {
-	if cr.Spec.Grafana.External.InternalUri != "" {
-		return cr.Spec.Grafana.External.InternalUri
-	}
-	if cr.Spec.Grafana.External.PublicUri != "" {
-		return cr.Spec.Grafana.External.PublicUri
-	}
-	return innerProtocol(cr.Spec.Grafana.Route) + cr.Name + "-grafana." + cr.Namespace + ".svc"
 }
