@@ -51,7 +51,8 @@ func keycloakPod(cr *hyperfoilv1alpha1.Horreum, keycloakPublicUrl string) *corev
 			Containers: []corev1.Container{
 				{
 					Name:  "keycloak",
-					Image: withDefault(cr.Spec.Keycloak.Image, "quay.io/hyperfoil/horreum-keycloak:latest"),
+					Image: withDefault(cr.Spec.Keycloak.Image, "quay.io/keycloak/keycloak:22.0"),
+					Args: []string{"start"},
 					Env: []corev1.EnvVar{
 						secretEnv("KEYCLOAK_ADMIN", keycloakAdminSecret(cr), corev1.BasicAuthUsernameKey),
 						secretEnv("KEYCLOAK_ADMIN_PASSWORD", keycloakAdminSecret(cr), corev1.BasicAuthPasswordKey),
