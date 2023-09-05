@@ -95,10 +95,6 @@ func keycloakPod(cr *hyperfoilv1alpha1.Horreum, keycloakPublicUrl string) *corev
 						},
 						secretEnv("KC_DB_USERNAME", keycloakDbSecret(cr), corev1.BasicAuthUsernameKey),
 						secretEnv("KC_DB_PASSWORD", keycloakDbSecret(cr), corev1.BasicAuthPasswordKey),
-						{
-							Name:  "KEYCLOAK_COMMAND",
-							Value: "start",
-						},
 					},
 					Ports: []corev1.ContainerPort{
 						{
