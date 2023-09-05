@@ -55,7 +55,7 @@ type ExternalSpec struct {
 type KeycloakSpec struct {
 	// When this is set Keycloak instance will not be deployed and Horreum will use this external instance.
 	External ExternalSpec `json:"external,omitempty"`
-	// Image that should be used for Keycloak deployment. Defaults to quay.io/keycloak/keycloak:latest
+	// Image that should be used for Keycloak deployment. Defaults to quay.io/keycloak/keycloak:22.0
 	Image string `json:"image,omitempty"`
 	// Route for external access to the Keycloak instance.
 	Route RouteSpec `json:"route,omitempty"`
@@ -72,7 +72,7 @@ type KeycloakSpec struct {
 type PostgresSpec struct {
 	// True (or omitted) to deploy PostgreSQL database
 	Enabled *bool `json:"enabled,omitempty"`
-	// Image used for PostgreSQL deployment. Defaults to registry.redhat.io/rhel8/postgresql-12:latest
+	// Image used for PostgreSQL deployment. Defaults to registry.redhat.io/rhel8/postgresql-12:1-144
 	Image string `json:"image,omitempty"`
 	// Secret used for unrestricted access to the database. Created if does not exist.
 	// Must contain keys `username` and `password`.
@@ -93,7 +93,7 @@ type HorreumSpec struct {
 	Route RouteSpec `json:"route,omitempty"`
 	// Alternative service type when routes are not available (e.g. on vanilla K8s)
 	ServiceType corev1.ServiceType `json:"serviceType,omitempty"`
-	// Horreum image. Defaults to quay.io/hyperfoil/horreum:latest
+	// Horreum image. Defaults to quay.io/hyperfoil/horreum:0.7.11
 	Image string `json:"image,omitempty"`
 	// Database coordinates for Horreum data. Besides `username` and `password` the secret must
 	// also contain key `dbsecret` that will be used to sign access to the database.

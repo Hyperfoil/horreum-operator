@@ -35,11 +35,11 @@ func horreumAdminSecret(cr *hyperfoilv1alpha1.Horreum) string {
 
 func dbImage(cr *hyperfoilv1alpha1.Horreum, useRedHatImage bool) string {
 	return withDefault(cr.Spec.Postgres.Image,
-		ifThenElse(useRedHatImage, "registry.redhat.io/rhel8/postgresql-12:latest", "docker.io/library/postgres:14.4"))
+		ifThenElse(useRedHatImage, "registry.redhat.io/rhel8/postgresql-12:1-144", "docker.io/library/postgres:14.4"))
 }
 
 func appImage(cr *hyperfoilv1alpha1.Horreum) string {
-	return withDefault(cr.Spec.Image, "quay.io/hyperfoil/horreum:latest")
+	return withDefault(cr.Spec.Image, "quay.io/hyperfoil/horreum:0.7.11")
 }
 
 func keycloakInternalURL(cr *hyperfoilv1alpha1.Horreum) string {

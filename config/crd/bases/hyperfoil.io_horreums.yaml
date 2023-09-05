@@ -82,7 +82,7 @@ spec:
                     type: string
                 type: object
               image:
-                description: Horreum image. Defaults to quay.io/hyperfoil/horreum:latest
+                description: Horreum image. Defaults to quay.io/hyperfoil/horreum:0.7.11
                 type: string
               keycloak:
                 description: Keycloak specification
@@ -125,7 +125,7 @@ spec:
                     type: object
                   image:
                     description: Image that should be used for Keycloak deployment.
-                      Defaults to quay.io/keycloak/keycloak:latest
+                      Defaults to quay.io/keycloak/keycloak:22.0
                     type: string
                   route:
                     description: Route for external access to the Keycloak instance.
@@ -165,7 +165,7 @@ spec:
                     type: boolean
                   image:
                     description: Image used for PostgreSQL deployment. Defaults to
-                      registry.redhat.io/rhel8/postgresql-12:latest
+                      registry.redhat.io/rhel8/postgresql-12:1-144
                     type: string
                   persistentVolumeClaim:
                     description: Name of PVC where the database will store the data.
