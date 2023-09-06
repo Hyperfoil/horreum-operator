@@ -34,6 +34,7 @@ import (
 
 	routev1 "github.com/openshift/api/route/v1"
 	corev1 "k8s.io/api/core/v1"
+	// rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -63,7 +64,8 @@ var nocheck = func(interface{}) (bool, string, string) {
 //+kubebuilder:rbac:groups=hyperfoil.io,resources=horreums,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=hyperfoil.io,resources=horreums/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=hyperfoil.io,resources=horreums/finalizers,verbs=update
-//+kubebuilder:rbac:groups=core,resources=pods;services;services/finalizers;endpoints;persistentvolumeclaims;events;configmaps;secrets,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=core,resources=pods;services;services/finalizers;endpoints;persistentvolumeclaims;events;configmaps;secrets;serviceaccounts,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=monitoring.coreos.com,resources=servicemonitors,verbs=get;create
 //+kubebuilder:rbac:groups=apps,resourceNames=horreum-operator,resources=deployments/finalizers,verbs=update
 //+kubebuilder:rbac:groups=route.openshift.io,resources=routes;routes/custom-host,verbs=get;list;watch;create;update;patch;delete
@@ -225,6 +227,10 @@ func (r *HorreumReconciler) Reconcile(ctx context.Context, request ctrl.Request)
 	}
 	cr.Status.KeycloakUrl = keycloakPublicUrl
 
+	keycloakConfigMap := keycloakConfigMap(cr)
+	if err := ensureSame(r, cr, logger, keycloakConfigMap, &corev1.ConfigMap{}, compareConfigMap, nocheck); err != nil {
+		return reconcile.Result{}, err
+	}
 	keycloakPod := keycloakPod(cr, keycloakPublicUrl)
 	if cr.Spec.Keycloak.External.PublicUri != "" {
 		if err := ensureDeleted(r, cr, keycloakPod, &corev1.Pod{}); err != nil {
@@ -238,10 +244,16 @@ func (r *HorreumReconciler) Reconcile(ctx context.Context, request ctrl.Request)
 				return reconcile.Result{}, err
 			}
 		}
-	} else if err := ensureSame(r, cr, logger, keycloakPod, &corev1.Pod{}, comparePods, checkPod); err != nil {
-		return reconcile.Result{}, err
+	} else {
+		if err := ensureSame(r, cr, logger, keycloakPod, &corev1.Pod{}, comparePods, checkPod); err != nil {
+			return reconcile.Result{}, err
+		}
 	}
 
+	appinitConfigMap := appinitConfigMap(cr)
+	if err := ensureSame(r, cr, logger, appinitConfigMap, &corev1.ConfigMap{}, compareConfigMap, nocheck); err != nil {
+		return reconcile.Result{}, err
+	}
 	appService := appService(cr, r)
 	appRoute, err := appRoute(cr, r)
 	if err != nil {
@@ -282,6 +294,18 @@ func (r *HorreumReconciler) Reconcile(ctx context.Context, request ctrl.Request)
 	}
 	cr.Status.PublicUrl = appPublicUrl
 
+	appServiceAccount := appServiceAccount(cr)
+	if err := ensureSame(r, cr, logger, appServiceAccount, &corev1.ServiceAccount{}, nocompare, nocheck); err != nil {
+		return reconcile.Result{}, err
+	}
+	// appClusterRole := appClusterRole(cr)
+	// if err := ensureSame(r, cr, logger, appClusterRole, &rbacv1.ClusterRole{}, nocompare, nocheck); err != nil {
+	// 	return reconcile.Result{}, err
+	// }
+	// appClusterRoleBinding := appClusterRoleBinding(cr)
+	// if err := ensureSame(r, cr, logger, appClusterRoleBinding, &rbacv1.ClusterRoleBinding{}, nocompare, nocheck); err != nil {
+	// 	return reconcile.Result{}, err
+	// }
 	appPod := appPod(cr, keycloakPublicUrl, appPublicUrl)
 	if err := ensureSame(r, cr, logger, appPod, &corev1.Pod{}, comparePods, checkPod); err != nil {
 		return reconcile.Result{}, err
