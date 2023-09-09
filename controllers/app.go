@@ -4,8 +4,33 @@ import (
 	hyperfoilv1alpha1 "github.com/Hyperfoil/horreum-operator/api/v1alpha1"
 	routev1 "github.com/openshift/api/route/v1"
 	corev1 "k8s.io/api/core/v1"
+	// rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+func appinitConfigMap(cr *hyperfoilv1alpha1.Horreum) *corev1.ConfigMap {
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cr.Name + "-app-init",
+			Namespace: cr.Namespace,
+			Labels: map[string]string{
+				"app": cr.Name,
+			},
+		},
+		Data: map[string]string{
+			// Note: 0.7.11 of Horreum used here still has grafana in the k8s-setup.sh script
+			"app_init.sh": `
+			    echo 'Injecting service-ca certificate ...'
+				keytool -noprompt -import -alias service-ca -file /etc/ssl/certs/service-ca.crt -cacerts -storepass changeit
+				until cat /deployments/k8s-setup.sh | sed '/grafana/d' | sh -x
+				do
+			  		echo 'Re-trying init ...'
+			  		sleep 10
+				done
+			`,
+		},
+	}
+}
 
 func appPod(cr *hyperfoilv1alpha1.Horreum, keycloakPublicUrl, appPublicUrl string) *corev1.Pod {
 	keycloakInternalURL := keycloakInternalURL(cr)
@@ -58,6 +83,17 @@ func appPod(cr *hyperfoilv1alpha1.Horreum, keycloakPublicUrl, appPublicUrl strin
 		})
 	}
 	volumes := []corev1.Volume{
+		{
+			Name: "app-init",
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: cr.Name + "-app-init",
+					},
+					DefaultMode: func(i int32) *int32 { return &i }(0555),
+				},
+			},
+		},
 		{
 			Name: "imports",
 			VolumeSource: corev1.VolumeSource{
@@ -115,7 +151,9 @@ func appPod(cr *hyperfoilv1alpha1.Horreum, keycloakPublicUrl, appPublicUrl strin
 	if routeType == "reencrypt" || routeType == "" {
 		caCertArg = "--cacert /etc/ssl/certs/service-ca.crt"
 	}
+	// userId := int64(0)
 	return &corev1.Pod{
+
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-app",
 			Namespace: cr.Namespace,
@@ -125,14 +163,18 @@ func appPod(cr *hyperfoilv1alpha1.Horreum, keycloakPublicUrl, appPublicUrl strin
 			},
 		},
 		Spec: corev1.PodSpec{
+			// ServiceAccountName:            "horreum-init",
 			TerminationGracePeriodSeconds: &[]int64{0}[0],
 			InitContainers: []corev1.Container{
 				{
 					Name:            "init",
 					Image:           appImage(cr),
 					ImagePullPolicy: corev1.PullAlways,
+					// SecurityContext: &corev1.SecurityContext{
+					// 	RunAsUser: &[]int64{userId}[0],
+					// },
 					Command: []string{
-						"sh", "-x", "-c", "/deployments/k8s-setup.sh",
+						"sh", "-x", "-c", "/deployments/app_init.sh;",
 					},
 					Env: []corev1.EnvVar{
 						secretEnv("KEYCLOAK_USER", keycloakAdminSecret(cr), corev1.BasicAuthUsernameKey),
@@ -154,6 +196,11 @@ func appPod(cr *hyperfoilv1alpha1.Horreum, keycloakPublicUrl, appPublicUrl strin
 					},
 					VolumeMounts: []corev1.VolumeMount{
 						{
+							Name:      "app-init",
+							MountPath: "/deployments/app_init.sh",
+							SubPath:   "app_init.sh",
+						},
+						{
 							Name:      "imports",
 							MountPath: "/etc/horreum/imports",
 						},
@@ -171,7 +218,6 @@ func appPod(cr *hyperfoilv1alpha1.Horreum, keycloakPublicUrl, appPublicUrl strin
 					Image: appImage(cr),
 					Command: []string{
 						"sh", "-c", `
-							keytool -noprompt -import -alias service-ca -file /etc/ssl/certs/service-ca.crt -cacerts -storepass changeit
 							export QUARKUS_OIDC_CREDENTIALS_SECRET=$$(cat /etc/horreum/imports/clientsecret)
 							/deployments/horreum.sh
 						`,
@@ -210,3 +256,56 @@ func appService(cr *hyperfoilv1alpha1.Horreum, r *HorreumReconciler) *corev1.Ser
 func appRoute(cr *hyperfoilv1alpha1.Horreum, r *HorreumReconciler) (*routev1.Route, error) {
 	return route(cr.Spec.Route, "", cr, r)
 }
+
+func appServiceAccount(cr *hyperfoilv1alpha1.Horreum) *corev1.ServiceAccount {
+	return &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "horreum-init",
+			Namespace: cr.Namespace,
+		},
+	}
+}
+
+// func appClusterRole(cr *hyperfoilv1alpha1.Horreum) *rbacv1.ClusterRole {
+// 	return &rbacv1.ClusterRole{
+// 		ObjectMeta: metav1.ObjectMeta{
+// 			Name:      "horreum-init-cluster-role",
+// 		},
+// 		Rules: []rbacv1.PolicyRule{
+// 			{
+// 				APIGroups: []string{
+// 					"security.openshift.io",
+// 				},
+// 				ResourceNames: []string{
+// 					"anyuid",
+// 				},
+// 				Resources: []string{
+// 					"securitycontextconstraints",
+// 				},
+// 				Verbs: []string{
+// 					"use",
+// 				},
+// 			},
+// 		},
+// 	}
+// }
+
+// func appClusterRoleBinding(cr *hyperfoilv1alpha1.Horreum) *rbacv1.ClusterRoleBinding {
+// 	return &rbacv1.ClusterRoleBinding{
+// 		ObjectMeta: metav1.ObjectMeta{
+// 			Name: "horreum-init-cluster-role-binding",
+// 		},
+// 		RoleRef: rbacv1.RoleRef{
+// 			APIGroup: "rbac.authorization.k8s.io",
+// 			Kind:     "ClusterRole",
+// 			Name:     "horreum-init-cluster-role",
+// 		},
+// 		Subjects: []rbacv1.Subject{
+// 			{
+// 				Kind:      "ServiceAccount",
+// 				Name:      "horreum-init",
+// 				Namespace: cr.Namespace,
+// 			},
+// 		},
+// 	}
+// }
